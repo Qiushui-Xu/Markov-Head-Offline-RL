@@ -6,7 +6,7 @@ import os
 import cv2
 from moviepy.editor import ImageSequenceClip
 
-from decision_transformer.models.utils import decode_return, expert_sampling, mgdt_logits
+from decision_transformer.models.utils import decode_return, expert_sampling
 
 def evaluate_episode(
     env,
@@ -228,28 +228,6 @@ def parallel_evaluate_episode_rtg(
             target_returns[:, -context_len:, :].to(dtype=torch.float32),
             timesteps[:, -context_len:].to(dtype=torch.long),
         )
-        if args["visualize_attn"]:
-            heatmap_list.append(attn_hm)
-
-        if args["mgdt_sampling"]:
-            opt_rtg = decode_return(
-                args["env"],
-                expert_sampling(
-                    mgdt_logits(rtg_prediction),
-                    top_percentile=args["top_percentile"],
-                    expert_weight=args["expert_weight"],
-                ),
-                num_bin=args["num_bins"],
-                rtg_scale=args["rtg_scale"],
-            )
-
-            _, action, _, _ = model.forward(
-                ((states[:, -context_len:, :].to(dtype=torch.float32) - state_mean) / state_std),
-                actions[:, -context_len:, :].to(dtype=torch.float32),
-                rewards.to(dtype=torch.float32),
-                opt_rtg,
-                timesteps[:, -context_len:].to(dtype=torch.long),
-            )
 
         action = action[:, -1]
         actions[:, -1, :] = action

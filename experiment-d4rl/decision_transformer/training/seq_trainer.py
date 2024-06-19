@@ -75,10 +75,15 @@ class SequenceTrainer(Trainer):
                 )
             loss += self.args["rtg_weight"] * rtg_loss
 
-        self.optimizer.zero_grad()
+        self.arch_opt.zero_grad()
+        self.ctl_opt.zero_grad()
         loss.backward()
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
-        self.optimizer.step()
+
+        if self.step % self.args["frec"]:
+            self.ctl_opt.step()
+        else:
+            self.arch_opt.step()
 
         with torch.no_grad():
             self.diagnostics["training/action_error"] = (

@@ -95,9 +95,7 @@ class DecisionTransformer(TrajectoryModel):
 
         self.args = args
         self.hidden_size = hidden_size
-        self.do_reprograming = args["reprogram"]
         self.position_embed = args['position_embed']
-        self.gpt_posiiton_embed = args['gpt_position_embed']
 
         if args["pretrained_lm"] is not None:
             print("Loading from pretrained "+args["pretrained_lm"]+" model")
@@ -227,24 +225,7 @@ class DecisionTransformer(TrajectoryModel):
             )
             self.predict_return = torch.nn.Linear(hidden_size, 1)
 
-        if self.do_reprograming:
-            self.word_embeddings = self.transformer_model.get_input_embeddings().weight
-            self.vocab_size = self.word_embeddings.shape[0]
-            self.num_tokens = 1000
-            self.state_prototype_mapping = nn.Linear(self.vocab_size, self.num_tokens)
-            #self.action_prototype_mapping = nn.Linear(self.vocab_size, self.num_tokens)
-            #self.returns_prototype_mapping = nn.Linear(self.vocab_size, self.num_tokens)
-
-            self.state_abstraction_layer = StateAbstractionLayer(d_model=hidden_size, n_heads=8, d_keys=None, d_llm=hidden_size)
-            #self.action_abstraction_layer = StateAbstractionLayer(d_model=hidden_size, n_heads=8, d_keys=None, d_llm=hidden_size)
-            #self.returns_abstraction_layer = StateAbstractionLayer(d_model=hidden_size, n_heads=8, d_keys=None, d_llm=hidden_size)
-
-        if args["mgdt_sampling"]:
-            self.predict_rtg = torch.nn.Linear(hidden_size, int(args["num_bins"]))
-        else:
-            self.predict_rtg = lambda x: None
         self.past_key_values = None
-        print(self)
 
     def forward(
         self,
@@ -257,12 +238,6 @@ class DecisionTransformer(TrajectoryModel):
         past_key_values=None,
         test=False,
     ):
-        # print(f"{states.shape=}, {actions.shape=}, {rewards.shape=}, {returns_to_go.shape=}")
-        ## states [64, 20, 11]
-        ## actions [64, 20, 3]
-        ## rewards.shape=torch.Size([64, 20, 1]),
-        ## returns_to_go.shape=torch.Size([64, 20, 1])
-
         batch_size, seq_length = states.shape[0], states.shape[1]
 
         if attention_mask is None:
@@ -278,35 +253,6 @@ class DecisionTransformer(TrajectoryModel):
         # print(f'{timesteps[0]=}') # consecutive numbers
         # print(f"{state_embeddings.shape=}, {time_embeddings.shape=}")
         ## both are ([64, 20, 768])
-
-        if self.do_reprograming:
-            state_prototype_embeddings = self.state_prototype_mapping(self.word_embeddings.permute(1, 0)).permute(1, 0)
-            abstract_state_embeddings = self.state_abstraction_layer(state_embeddings, state_prototype_embeddings, state_prototype_embeddings)
-            state_embeddings = abstract_state_embeddings
-
-            abstract_action_embeddings = self.action_abstraction_layer(action_embeddings, state_prototype_embeddings, state_prototype_embeddings)
-            action_embeddings = abstract_action_embeddings
-
-            abstract_returns_embeddings = self.returns_abstraction_layer(returns_embeddings, state_prototype_embeddings, state_prototype_embeddings)
-            returns_embeddings = abstract_returns_embeddings
-
-            # action_prototype_embeddings = self.action_prototype_mapping(self.word_embeddings.permute(1, 0)).permute(1, 0)
-            # abstract_action_embeddings = self.action_abstraction_layer(action_embeddings, action_prototype_embeddings, action_prototype_embeddings)
-            # action_embeddings += abstract_action_embeddings
-
-            # returns_prototype_embeddings = self.returns_prototype_mapping(self.word_embeddings.permute(1, 0)).permute(1, 0)
-            # abstract_returns_embeddings = self.returns_abstraction_layer(returns_embeddings, returns_prototype_embeddings, returns_prototype_embeddings)
-            # returns_embeddings += abstract_returns_embeddings
-        # action_prototype_embeddings = self.action_prototype_mapping(self.word_embeddings.permute(1, 0)).permute(1, 0)
-        # abstract_action_embedding = self.action_abstraction_layer(action_embeddings, action_prototype_embeddings, action_prototype_embeddings)
-        # returns_prototype_embeddings = self.returns_prototype_mapping(self.word_embeddings.permute(1, 0)).permute(1, 0)
-        # abstract_returns_embedding = self.returns_abstraction_layer(returns_embeddings, returns_prototype_embeddings, returns_prototype_embeddings)
-
-        # print(f"{prototype_embeddings.shape=}, {abstract_state_embedding.shape=}")
-        ## [1000, 768]), abstract_state_embedding.shape=torch.Size([64, 20, 768])
-
-        # this makes the sequence look like (R_1, s_1, a_1, R_2, s_2, a_2, ...)
-        # which works nice in an autoregressive sense since states predict actions
 
         stacked_inputs = (
             torch.stack(
@@ -338,39 +284,11 @@ class DecisionTransformer(TrajectoryModel):
             attention_mask=stacked_attention_mask,
             past_key_values=None,  # self.past_key_values,
             use_cache=True,
-            to_add_position_embeds=self.gpt_posiiton_embed,
             output_attentions=True,
             output_hidden_states=True,
-            interrupt_h=self.args["hidden_index"],
         )
 
-        x = transformer_outputs["hidden_states"][self.args["hidden_index"]]
-
-        #print(f"{type(transformer_outputs['attentions'][0])}") # tuple
-        #print(f"{transformer_outputs['attentions'][0].shape}") # 12
-        #print(f"{transformer_outputs['attentions'].keys()}")
-        # if self.args["visualize_attn"] and transformer_outputs['attentions'][0].shape[-1] == 60:
-        #     #plot attention
-        #     # transformer_outputs['attentions'] has the shape of [n_layer, batch_size, n_head(12), seq_len, seq_len]
-        #     for i in range(12):
-        #         target_att = transformer_outputs['attentions'][0][0][i].cpu().detach()
-        #         target_att = target_att[1::3]
-        #         plt.imshow(target_att, cmap="hot")
-        #         plt.savefig(f"test_{i}.png")
-
-        #     # def show_attn_dist(attn):
-        #     #     # to prove attention matrix distance does not matter!
-        #     #     dist = torch.zeros((attn[0].shape[2], attn[0].shape[3]))
-        #     #     for i in range(dist.shape[0]):
-        #     #         for j in range(dist.shape[1]):
-        #     #             dist[i][j] = abs(i - j)
-            
-        #     #     for i in range(len(attn)):
-        #     #         layer_attn = attn[i].mean(0)[0].detach().cpu()
-        #     #         attn_dist = (layer_attn * dist).mean()
-        #     #         print(f"layer {i} attention distance: {attn_dist}")
-        #     # show_attn_dist(transformer_outputs['attentions'])
-        #     raise NotImplementedError
+        x = transformer_outputs["last_hidden_state"]
 
         #print(transformer_outputs.keys())
         self.past_key_values = transformer_outputs["past_key_values"]
@@ -400,108 +318,6 @@ class DecisionTransformer(TrajectoryModel):
         actions = actions.reshape(1, -1, self.act_dim)
         returns_to_go = returns_to_go.reshape(1, -1, 1)
         timesteps = timesteps.reshape(1, -1)
-
-        if self.max_length is not None:
-            states = states[:, -self.max_length :]
-            actions = actions[:, -self.max_length :]
-            returns_to_go = returns_to_go[:, -self.max_length :]
-            timesteps = timesteps[:, -self.max_length :]
-
-            # pad all tokens to sequence length
-            attention_mask = torch.cat(
-                [
-                    torch.zeros(self.max_length - states.shape[1]),
-                    torch.ones(states.shape[1]),
-                ]
-            )
-            attention_mask = attention_mask.to(
-                dtype=torch.long, device=states.device
-            ).reshape(1, -1)
-            states = torch.cat(
-                [
-                    torch.zeros(
-                        (
-                            states.shape[0],
-                            self.max_length - states.shape[1],
-                            self.state_dim,
-                        ),
-                        device=states.device,
-                    ),
-                    states,
-                ],
-                dim=1,
-            ).to(dtype=torch.float32)
-            actions = torch.cat(
-                [
-                    torch.zeros(
-                        (
-                            actions.shape[0],
-                            self.max_length - actions.shape[1],
-                            self.act_dim,
-                        ),
-                        device=actions.device,
-                    ),
-                    actions,
-                ],
-                dim=1,
-            ).to(dtype=torch.float32)
-            returns_to_go = torch.cat(
-                [
-                    torch.zeros(
-                        (
-                            returns_to_go.shape[0],
-                            self.max_length - returns_to_go.shape[1],
-                            1,
-                        ),
-                        device=returns_to_go.device,
-                    ),
-                    returns_to_go,
-                ],
-                dim=1,
-            ).to(dtype=torch.float32)
-            timesteps = torch.cat(
-                [
-                    torch.zeros(
-                        (timesteps.shape[0], self.max_length - timesteps.shape[1]),
-                        device=timesteps.device,
-                    ),
-                    timesteps,
-                ],
-                dim=1,
-            ).to(dtype=torch.long)
-            #print(f"{timesteps=}")
-        else:
-            attention_mask = None
-
-        _, action_preds, return_preds, __ = self.forward(
-            states,
-            actions,
-            None,
-            returns_to_go,
-            timesteps,
-            attention_mask=attention_mask,
-            **kwargs,
-        )
-
-        return action_preds[0, -1]
-
-    def get_action_batch(
-        self,
-        states,
-        actions,
-        rewards,
-        returns_to_go,
-        timesteps,
-        past_key_values=None,
-        n_envs=None,
-        **kwargs
-    ):
-        # we don't care about the past rewards in this model
-        
-        states = states.reshape(n_envs, -1, self.state_dim)
-        actions = actions.reshape(n_envs, -1, self.act_dim)
-        returns_to_go = returns_to_go.reshape(n_envs, -1, 1)
-        timesteps = timesteps.reshape(n_envs, -1)
 
         if self.max_length is not None:
             states = states[:, -self.max_length :]

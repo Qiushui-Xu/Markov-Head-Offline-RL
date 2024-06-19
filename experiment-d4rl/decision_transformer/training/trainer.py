@@ -14,9 +14,7 @@ class Trainer:
         ctl_opt,
         batch_size,
         get_batch,
-        get_test_batch,
         loss_fn,
-        trajectory_example,
         scheduler=None,
         eval_fns=None,
         eval_only=False,
@@ -28,7 +26,6 @@ class Trainer:
         self.batch_size = batch_size
         self.scaler = torch.cuda.amp.GradScaler()
         self.get_batch = get_batch
-        self.get_test_batch = get_test_batch
         self.loss_fn = loss_fn
         self.scheduler = scheduler
         self.step = 0
@@ -37,8 +34,6 @@ class Trainer:
         self.eval_only = eval_only
 
         self.start_time = time.time()
-        
-        self.trajectory_example = trajectory_example
 
     def train_iteration(self, num_steps, iter_num=0, print_logs=False):
         if not self.args["eval_all_checkpoints"] and self.args["path_to_load"] != "":
@@ -53,7 +48,6 @@ class Trainer:
         # lm_losses = []
         logs = dict()
 
-        step_num = 0
         train_start = time.time()
 
         if not self.eval_only:
@@ -61,7 +55,7 @@ class Trainer:
             mean_loss = 0
             progress_bar = tqdm.tqdm(range(num_steps), desc=f"Training")
             for _ in progress_bar:
-                train_loss = self.train_step(step_num)
+                train_loss = self.train_step()
 
                 train_losses.append(train_loss)
                 if self.scheduler is not None:
@@ -72,7 +66,6 @@ class Trainer:
                 logs["training/train_loss_std"] = np.std(train_losses)
 
                 progress_bar.set_postfix({"loss": logs["training/train_loss_mean"], "lr": self.arch_opt.param_groups[0]['lr']})
-                
 
         eval_start = time.time()
 
@@ -110,9 +103,8 @@ class Trainer:
 
         return logs
 
-    def train_step(self, step_num):
+    def train_step(self):
         self.arch_opt.zero_grad()
-        self.ctl_opt.zero_grad()
         states, actions, rewards, dones, attention_mask, returns = self.get_batch(
             self.batch_size
         )
@@ -169,9 +161,6 @@ class Trainer:
             self.scaler.update()
         else:
             loss.backward()
-            if step_num % self.args["frec"] == 0:
-                self.ctl_opt.step()
-            else:
-                self.arch_opt.step()
+            self.arch_opt.step()
 
         return loss.detach().cpu().item()

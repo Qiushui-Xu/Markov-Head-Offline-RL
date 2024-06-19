@@ -778,7 +778,6 @@ class GPT2Model(GPT2PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        to_add_position_embeds=False,
         interrupt_h=None,
     ):
         output_attentions = (
@@ -874,10 +873,7 @@ class GPT2Model(GPT2PreTrainedModel):
 
         if inputs_embeds is None:
             inputs_embeds = self.wte(input_ids)
-        
-        if to_add_position_embeds:
-            inputs_embeds = inputs_embeds + self.wpe(position_ids)
-        
+         
         hidden_states = inputs_embeds
 
         if token_type_ids is not None:
