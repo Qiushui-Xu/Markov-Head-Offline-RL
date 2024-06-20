@@ -19,13 +19,12 @@ seed=${5}
 description="${pretrained_lm}_pretrained-ratio=${sample_ratio}_${description}"
 gpu=${6}
 outdir="checkpoints/${env}_${dataset}_${description}_${seed}"
-h_id=3
 
 CUDA_VISIBLE_DEVICES=${gpu} python experiment.py --env ${env} \
         --dataset ${dataset} \
         --seed ${seed} \
         --K ${K} \
-        --lr ${lr} \
+        -lr ${lr} \
         --num_steps_per_iter ${num_steps_per_iter} \
         --weight_decay ${weight_decay} \
         --max_iters ${max_iters} \
@@ -33,10 +32,11 @@ CUDA_VISIBLE_DEVICES=${gpu} python experiment.py --env ${env} \
         --sample_ratio ${sample_ratio} \
         --warmup_steps ${warmup_steps} \
         --pretrained_lm ${pretrained_lm} \
-	    --hidden_index ${h_id} \
         --outdir ${outdir} \
         --dropout ${dropout} \
         --description ${description} \
         --position_embed \
-        # --log_to_wandb \
+	--log_to_wandb \
+	# --use_control \
+	# --eval_only \
         # --reinit_markov_head \

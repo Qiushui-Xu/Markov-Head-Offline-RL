@@ -96,6 +96,7 @@ class DecisionTransformer(TrajectoryModel):
         self.args = args
         self.hidden_size = hidden_size
         self.position_embed = args['position_embed']
+        self.use_control = args["use_control"]
 
         if args["pretrained_lm"] is not None:
             print("Loading from pretrained "+args["pretrained_lm"]+" model")
@@ -130,6 +131,7 @@ class DecisionTransformer(TrajectoryModel):
             elif "gpt" in args["pretrained_lm"]:
                 config = transformers.GPT2Config.from_pretrained(args["pretrained_lm"])
                 config.resid_pdrop = args["dropout"]
+                config.use_control = args["use_control"]
                 self.transformer_model = GPT2LMHeadModel.from_pretrained(
                     args["pretrained_lm"],
                     config=config,
@@ -168,23 +170,6 @@ class DecisionTransformer(TrajectoryModel):
                 self.transformer_model = GPT2LMHeadModel(config)
             hidden_size = config.n_embd
             self.hidden_size = config.n_embd
-
-        # if max_ep_len > config.n_positions and args["extend_positions"]:
-        #     current_max_pos, embed_size = self.transformer.wpe.weight.shape
-        #     new_encoder_pos_embed = self.transformer.wpe.weight.new_empty(
-        #         max_ep_len, embed_size
-        #     )
-        #     # copy position embeddings over and over to initialize the new position embeddings
-        #     orig_k = 2
-        #     k = orig_k
-        #     step = current_max_pos - k
-        #     new_encoder_pos_embed[:k] = self.transformer.wpe.weight[:k]
-        #     while k < max_ep_len - 1:
-        #         new_encoder_pos_embed[k : (k + step)] = self.transformer.wpe.weight[
-        #             orig_k : min(max_ep_len - k + orig_k, current_max_pos)
-        #         ]
-        #         k += step
-        #     self.transformer.wpe.weight.data = new_encoder_pos_embed
 
         if args["extend_positions"]:
             self.embed_timestep = self.transformer.wpe
@@ -249,10 +234,6 @@ class DecisionTransformer(TrajectoryModel):
         action_embeddings = self.embed_action(actions)
         returns_embeddings = self.embed_return(returns_to_go)
         time_embeddings = self.embed_timestep(timesteps)
-
-        # print(f'{timesteps[0]=}') # consecutive numbers
-        # print(f"{state_embeddings.shape=}, {time_embeddings.shape=}")
-        ## both are ([64, 20, 768])
 
         stacked_inputs = (
             torch.stack(

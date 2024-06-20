@@ -15,7 +15,6 @@ from decision_transformer.evaluation.evaluate_episodes import (
     parallel_evaluate_episode_rtg,
 )
 from decision_transformer.models.decision_transformer import DecisionTransformer
-from decision_transformer.training.act_trainer import ActTrainer
 from decision_transformer.training.seq_trainer import SequenceTrainer
 from utils import get_optimizer
 
@@ -320,6 +319,7 @@ def experiment(
         loss_fn=lambda s_hat, a_hat, r_hat, s, a, r: torch.mean((a_hat - a) ** 2),
         eval_fns=[eval_episodes(tar, visualize) for tar in env_targets],
         eval_only=variant["eval_only"],
+        use_control=variant["use_control"],
     )
 
     if log_to_wandb:
@@ -329,8 +329,8 @@ def experiment(
             group=f'{variant["env"]}-{variant["dataset"]}-{variant["sample_ratio"]}-{variant["description"]}',
             name=str(variant["seed"]),
             # NOTE: fill in the name of your own wandb project
-            #entity="your-group-name",
-            project="hybrid_state_test",
+            entity="wenhaozhao",
+            project="PRL-hopper-m",
             config=variant,
         )
         # wandb.watch(model)  # wandb has some bug
@@ -395,6 +395,7 @@ if __name__ == "__main__":
     parser.add_argument("--activation_function", type=str, default="relu")
     parser.add_argument("--extend_positions", action="store_true", default=False)
     parser.add_argument("--position_embed", action="store_true", default=False)
+    parser.add_argument("--share_input_output_proj", action="store_true", default=False)
     # learning hyperparameters
     parser.add_argument("--dropout", type=float, default=0.1)
     parser.add_argument("--learning_rate", "-lr", type=float, default=1e-4)
@@ -407,6 +408,12 @@ if __name__ == "__main__":
     parser.add_argument("--pretrained_lm", type=str, default=None)
     parser.add_argument("--mlp_embedding", action="store_true", default=False)
     parser.add_argument("--reinit_markov_head", action="store_true", default=False)
+    parser.add_argument("--eval_only", action="store_true", default=False)
+    parser.add_argument("--eval_all_checkpoints", action="store_true", default=False)
+    parser.add_argument(
+        "--path_to_load", type=str, default=""
+    )
+    parser.add_argument("--use_control", action="store_true", default=False)
     # adaptations
     parser.add_argument("--adapt_mode", action="store_true", default=False)
     parser.add_argument("--lora", action="store_true", default=False)

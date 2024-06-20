@@ -18,6 +18,7 @@ class Trainer:
         scheduler=None,
         eval_fns=None,
         eval_only=False,
+        use_control=False,
     ):
         self.args = args
         self.model = model
@@ -32,6 +33,7 @@ class Trainer:
         self.eval_fns = [] if eval_fns is None else eval_fns
         self.diagnostics = dict()
         self.eval_only = eval_only
+        self.use_control = use_control
 
         self.start_time = time.time()
 

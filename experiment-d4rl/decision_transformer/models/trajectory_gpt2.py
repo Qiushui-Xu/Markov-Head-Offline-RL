@@ -16,6 +16,7 @@
 """PyTorch OpenAI GPT-2 model."""
 
 import math
+import numpy as np
 import os
 from dataclasses import dataclass
 from typing import Optional, Tuple
@@ -173,7 +174,8 @@ class GPT2Attention(nn.Module):
         self.resid_dropout = nn.Dropout(config.resid_pdrop)
 
         self.pruned_heads = set()
-        if self.layer_idx == 0:
+        self.use_control = config.use_control
+        if self.layer_idx == 0 and self.use_control:
             self.control_net = Conv1D(self.num_heads, self.embed_dim)
 
     def prune_heads(self, heads):
@@ -377,9 +379,9 @@ class GPT2Attention(nn.Module):
                 query, key, value, attention_mask, head_mask
             )
 
-        if self.layer_idx == 0:
-            alpha = self.control_net(hidden_states).transpose(1, 2)
-            attn_output = alpha.unsqueeze(-1) * attn_output
+        if self.layer_idx == 0 and self.use_control:
+            self.alpha = self.control_net(hidden_states).transpose(1, 2)
+            attn_output = self.alpha.unsqueeze(-1) * attn_output
 
         attn_output = self._merge_heads(attn_output, self.num_heads, self.head_dim)
         attn_output = self.c_proj(attn_output)
@@ -390,6 +392,13 @@ class GPT2Attention(nn.Module):
             outputs += (attn_weights,)
 
         return outputs  # a, present, (attentions)
+
+    def show_alpha(self):
+        alpha = self.alpha.mean(0).detach().cpu()
+        r = np.random.rand(1)
+        if r < 0.1:
+            print("topk element index: ", np.array(torch.topk(alpha, dim=0, k=5)[1].squeeze(0).squeeze(-1)))
+            print("topk element value: ", np.array(torch.topk(alpha, dim=0, k=5)[0].squeeze(0).squeeze(-1)))
 
 
 class GPT2MLP(nn.Module):
@@ -778,7 +787,6 @@ class GPT2Model(GPT2PreTrainedModel):
         output_attentions=None,
         output_hidden_states=None,
         return_dict=None,
-        interrupt_h=None,
     ):
         output_attentions = (
             output_attentions
@@ -963,9 +971,6 @@ class GPT2Model(GPT2PreTrainedModel):
                 for k, v in self.device_map.items():
                     if i == v[-1] and "cuda:" + str(k) != self.last_device:
                         hidden_states = hidden_states.to("cuda:" + str(k + 1))
-            if type(interrupt_h) == int:
-                if i == interrupt_h:
-                    break
 
         hidden_states = self.ln_f(hidden_states)
 

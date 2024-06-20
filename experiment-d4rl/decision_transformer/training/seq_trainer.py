@@ -48,39 +48,15 @@ class SequenceTrainer(Trainer):
         )
         loss = action_loss
 
-        if rtg_preds != None:
-            rtg_target = (
-                encode_return(
-                    self.args["env"],
-                    rtg[:, :-1],
-                    num_bin=self.args["num_bins"],
-                    rtg_scale=self.args["rtg_scale"],
-                )
-                .float()
-                .reshape(-1, 1)[
-                    attention_mask.view(-1,) > 0
-                ]
-            )
-            rtg_preds = rtg_preds.reshape(-1, self.args["num_bins"])[
-                attention_mask.view(-1,) > 0
-            ]
-
-            # print(f"{rtg_preds.shape=}, {rtg_target.shape=}")
-            # rtg_preds.shape=torch.Size([1247, 60]), rtg_target.shape=torch.Size([1247, 1])
-            rtg_loss = cross_entropy(rtg_preds, rtg_target, self.args["num_bins"])
-
-            with torch.no_grad():
-                self.diagnostics["training/rtg_ce_loss"] = (
-                    rtg_loss.detach().cpu().item()
-                )
-            loss += self.args["rtg_weight"] * rtg_loss
 
         self.arch_opt.zero_grad()
-        self.ctl_opt.zero_grad()
+        if self.use_control:
+            self.ctl_opt.zero_grad()
         loss.backward()
+        # print(self.model.transformer_model.transformer.h[0].attn.control_net.weight.grad)
         torch.nn.utils.clip_grad_norm_(self.model.parameters(), 0.25)
 
-        if self.step % self.args["frec"]:
+        if self.step % self.args["frec"] and self.use_control:
             self.ctl_opt.step()
         else:
             self.arch_opt.step()
