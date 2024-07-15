@@ -330,7 +330,7 @@ def experiment(
             name=str(variant["seed"]),
             # NOTE: fill in the name of your own wandb project
             entity="wenhaozhao",
-            project="PRL-hopper-m",
+            project="NEO-hopper-m",
             config=variant,
         )
         # wandb.watch(model)  # wandb has some bug
