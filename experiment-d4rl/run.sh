@@ -1,3 +1,19 @@
+#!/bin/bash
+# Usage: bash run.sh <env> <dataset> <sample_ratio> <description> <seed> <gpu_id>
+#
+# Examples:
+#   bash run.sh hopper medium 1.0 baseline 42 0
+#   bash run.sh halfcheetah medium-replay 0.1 low_data 0 1
+#   bash run.sh walker2d medium-expert 1.0 full_data 123 0
+#
+# Arguments:
+#   env:          hopper | halfcheetah | walker2d
+#   dataset:      medium | medium-replay | medium-expert
+#   sample_ratio: fraction of data to use (1.0 = full dataset)
+#   description:  experiment description tag
+#   seed:         random seed
+#   gpu_id:       CUDA device ID
+
 export TRANSFORMERS_OFFLINE=0
 export TOKENIZERS_PARALLELISM=0
 
@@ -14,18 +30,16 @@ if [ "$env" == "reacher2d" ]; then
     K=5
 else
     K=20
-fi # K is context length
+fi
 dataset=${2}
 sample_ratio=${3}
-pretrained_lm="gpt-neo"
+pretrained_lm="gpt2"
 description=${4}
 seed=${5}
 description="${pretrained_lm}_pretrained-ratio=${sample_ratio}_${description}"
 gpu=${6}
 outdir="checkpoints/${env}_${dataset}_${description}_${seed}"
 
-# CUDA_VISIBLE_DEVICES=${gpu} python
-# torchrun --nproc_per_node=4
 CUDA_VISIBLE_DEVICES=${gpu} python experiment.py --env ${env} \
         --dataset ${dataset} \
         --seed ${seed} \
@@ -42,8 +56,4 @@ CUDA_VISIBLE_DEVICES=${gpu} python experiment.py --env ${env} \
         --outdir ${outdir} \
         --dropout ${dropout} \
         --description ${description} \
-	--log_to_wandb \
-	# --lora \
-	# --adapt_mode \
-        # --adapt_embed \
-
+        --log_to_wandb

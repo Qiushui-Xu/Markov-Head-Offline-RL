@@ -324,16 +324,11 @@ def experiment(
 
     if log_to_wandb:
         wandb.init(
-            #name=exp_prefix,
-            #group=group_name,
             group=f'{variant["env"]}-{variant["dataset"]}-{variant["sample_ratio"]}-{variant["description"]}',
             name=str(variant["seed"]),
-            # NOTE: fill in the name of your own wandb project
-            entity="wenhaozhao",
-            project="NEO-hopper-m",
+            project="pretrained-dt",
             config=variant,
         )
-        # wandb.watch(model)  # wandb has some bug
 
     total_training_time = 0
     if variant["eval_all_checkpoints"]:
@@ -344,17 +339,14 @@ def experiment(
             outputs = trainer.train_iteration(
                 num_steps=variant["num_steps_per_iter"], iter_num=iter, print_logs=True
             )
-            print("HI2!")
 
             if log_to_wandb:
                 wandb.log(outputs, step=int(iter))
     else:
         for iter in range(variant["max_iters"]):
-            print("HI!")
             outputs = trainer.train_iteration(
                 num_steps=variant["num_steps_per_iter"], iter_num=iter + 1, print_logs=True
             )
-            print("HI2!")
             if not variant["eval_only"]:
                 total_training_time += outputs["time/training"]
                 outputs["time/total_training_time"] = total_training_time

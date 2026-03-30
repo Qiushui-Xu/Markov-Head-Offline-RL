@@ -74,17 +74,11 @@ class Trainer:
         self.model.eval()
         for eval_fn in tqdm.tqdm(self.eval_fns, desc="Evaluating"):
             outputs = eval_fn(self.model)
-            print(outputs)
             for k, v in outputs.items():
-                print(k,":",v)
                 logs[f"evaluation/{k}"] = v
 
         if not self.eval_only:
             logs["time/total"] = time.time() - self.start_time
-        else:
-            print("torch.cuda.memory_allocated: %fGB"%(torch.cuda.memory_allocated(0)/1024/1024/1024))
-            print("torch.cuda.memory_reserved: %fGB"%(torch.cuda.memory_reserved(0)/1024/1024/1024))
-            print("torch.cuda.max_memory_reserved: %fGB"%(torch.cuda.max_memory_reserved(0)/1024/1024/1024))
         logs["time/evaluation"] = time.time() - eval_start
 
         for k in self.diagnostics:
