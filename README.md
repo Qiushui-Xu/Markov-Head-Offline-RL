@@ -2,15 +2,19 @@
 
 Official code for the paper:
 
-> **Unveiling Markov Heads in Pretrained Language Models for Offline Reinforcement Learning**
->
-> Wenhao Zhao<sup>*</sup>, Qiushui Xu<sup>*</sup>, Linjie Xu, Lei Song, Jinyu Wang, Chunlai Zhou, Jiang Bian
->
-> <sub>* Equal contribution</sub>
->
-> **ICML 2025**
->
-> [[arXiv]](https://arxiv.org/abs/2409.06985)
+<p align="center">
+  <strong>Unveiling Markov Heads in Pretrained Language Models for Offline Reinforcement Learning</strong><br>
+  <em>ICML 2025</em>
+</p>
+
+<p align="center">
+  Wenhao Zhao<sup>*</sup>&nbsp;&nbsp;Qiushui Xu<sup>*</sup>&nbsp;&nbsp;Linjie Xu&nbsp;&nbsp;Lei Song&nbsp;&nbsp;Jinyu Wang&nbsp;&nbsp;Chunlai Zhou&nbsp;&nbsp;Jiang Bian<br>
+  <sub><sup>*</sup> Equal contribution</sub>
+</p>
+
+<p align="center">
+  <a href="https://arxiv.org/abs/2409.06985">[arXiv]</a>
+</p>
 
 ## Overview
 
